@@ -1,0 +1,10 @@
+/* AiChatLens — Host Element Styles */
+/* Internal panel styles are injected inside Shadow DOM via content.js */
+
+#aicl-host {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 9999;
+  height: 100vh;
+}
