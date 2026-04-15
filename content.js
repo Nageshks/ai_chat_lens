@@ -164,6 +164,67 @@
       display: none;
     }
 
+    .aicl-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .collapsed .aicl-header-actions .aicl-copy-btn {
+      display: none;
+    }
+
+    .aicl-copy-btn {
+      background: none;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #a1a1aa;
+      cursor: pointer;
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+      font-size: 12px;
+      line-height: 1;
+      position: relative;
+    }
+
+    .aicl-copy-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fafafa;
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .aicl-copy-btn.copied {
+      border-color: rgba(74, 222, 128, 0.4);
+      color: #4ade80;
+    }
+
+    .aicl-copy-toast {
+      position: absolute;
+      bottom: -28px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(24, 24, 27, 0.95);
+      border: 1px solid rgba(74, 222, 128, 0.3);
+      color: #4ade80;
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .aicl-copy-btn.copied .aicl-copy-toast {
+      opacity: 1;
+    }
+
     .aicl-collapse-btn {
       background: none;
       border: 1px solid rgba(255, 255, 255, 0.1);
@@ -687,13 +748,28 @@
     headerLeft.appendChild(logo);
     headerLeft.appendChild(title);
 
+    // Copy all questions button
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'aicl-copy-btn';
+    copyBtn.title = 'Copy all questions';
+    copyBtn.innerHTML = '📋';
+    const copyToast = document.createElement('span');
+    copyToast.className = 'aicl-copy-toast';
+    copyToast.textContent = 'Copied!';
+    copyBtn.appendChild(copyToast);
+
     const collapseBtn = document.createElement('button');
     collapseBtn.className = 'aicl-collapse-btn';
     collapseBtn.title = 'Toggle panel (Alt+T)';
     collapseBtn.textContent = '›';
 
+    const headerActions = document.createElement('div');
+    headerActions.className = 'aicl-header-actions';
+    headerActions.appendChild(copyBtn);
+    headerActions.appendChild(collapseBtn);
+
     header.appendChild(headerLeft);
-    header.appendChild(collapseBtn);
+    header.appendChild(headerActions);
 
     // ---- Collapsed badge ----
     const collapsedBadge = document.createElement('div');
@@ -779,7 +855,7 @@
     shadow.appendChild(panel);
     document.body.appendChild(host);
 
-    return { host, shadow, panel, body, collapseBtn, countBadge, footerText, collapsedBadge, searchInput, searchClear, searchCount };
+    return { host, shadow, panel, body, collapseBtn, copyBtn, countBadge, footerText, collapsedBadge, searchInput, searchClear, searchCount };
   }
 
   // ----------------------------------------------------------
@@ -1284,6 +1360,29 @@
 
     // Collapse button
     dom.collapseBtn.addEventListener('click', () => togglePanel(dom));
+
+    // Copy all questions button
+    dom.copyBtn.addEventListener('click', () => {
+      if (tocItems.length === 0) return;
+      const text = tocItems
+        .map((item, i) => `${i + 1}. ${item.text}`)
+        .join('\n');
+      navigator.clipboard.writeText(text).then(() => {
+        dom.copyBtn.classList.add('copied');
+        setTimeout(() => dom.copyBtn.classList.remove('copied'), 1500);
+      }).catch(() => {
+        // Fallback for older browsers/restricted contexts
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        dom.copyBtn.classList.add('copied');
+        setTimeout(() => dom.copyBtn.classList.remove('copied'), 1500);
+      });
+    });
 
     // Collapsed badge click to expand
     dom.collapsedBadge.addEventListener('click', () => {
