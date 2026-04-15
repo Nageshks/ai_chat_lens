@@ -993,6 +993,22 @@
   }
 
   // ----------------------------------------------------------
+  // Find nearest scrollable ancestor
+  // ----------------------------------------------------------
+  function findScrollableParent(el) {
+    let parent = el.parentElement;
+    while (parent && parent !== document.documentElement) {
+      const style = getComputedStyle(parent);
+      const overflowY = style.overflowY;
+      if ((overflowY === 'auto' || overflowY === 'scroll') && parent.scrollHeight > parent.clientHeight) {
+        return parent;
+      }
+      parent = parent.parentElement;
+    }
+    return null;
+  }
+
+  // ----------------------------------------------------------
   // Scroll to message + highlight flash
   // ----------------------------------------------------------
   function scrollToMessage(item, dom) {
@@ -1004,23 +1020,26 @@
       ? (el.closest('[data-message-item="true"]') || el)
       : el;
 
-    // Scroll into view
-    scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-    // Offset for sticky header
-    setTimeout(() => {
-      if (platform === 'meta') {
-        // Meta AI uses a nested scroll container, not the window
-        const scrollContainer = scrollTarget.closest('.overflow-y-auto');
-        if (scrollContainer) {
-          scrollContainer.scrollBy({ top: -HEADER_OFFSET, behavior: 'smooth' });
-        } else {
-          window.scrollBy({ top: -HEADER_OFFSET, behavior: 'smooth' });
-        }
+    if (platform === 'meta') {
+      // Meta AI uses a nested scroll container with CSS perspective/transform
+      // that breaks scrollIntoView — use manual scroll calculation instead
+      const scrollContainer = findScrollableParent(scrollTarget);
+      if (scrollContainer) {
+        const targetRect = scrollTarget.getBoundingClientRect();
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const desiredScrollTop = scrollContainer.scrollTop + (targetRect.top - containerRect.top) - HEADER_OFFSET;
+        scrollContainer.scrollTo({ top: Math.max(0, desiredScrollTop), behavior: 'smooth' });
       } else {
-        window.scrollBy({ top: -HEADER_OFFSET, behavior: 'smooth' });
+        // Fallback: try scrollIntoView anyway
+        scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
-    }, 100);
+    } else {
+      // Claude: standard scrollIntoView + window offset
+      scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setTimeout(() => {
+        window.scrollBy({ top: -HEADER_OFFSET, behavior: 'smooth' });
+      }, 100);
+    }
 
     // Highlight flash
     scrollTarget.classList.add('aicl-highlight-flash');
