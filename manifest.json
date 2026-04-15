@@ -1,15 +1,15 @@
 {
   "manifest_version": 3,
   "name": "AiChatLens",
-  "version": "1.0.0",
-  "description": "Adds a floating Table of Contents panel to claude.ai for quick navigation of user questions in long conversations.",
+  "version": "1.1.0",
+  "description": "Adds a floating Table of Contents panel to AI chat platforms (Claude, Meta AI) for quick navigation of user questions in long conversations.",
   "permissions": ["storage", "activeTab"],
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["*://*.claude.ai/*"],
+      "matches": ["*://*.claude.ai/*", "*://*.meta.ai/*"],
       "js": ["content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"

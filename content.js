@@ -1,6 +1,6 @@
 // ============================================================
-// AiChatLens v1 — Content Script
-// Floating TOC panel for claude.ai conversations
+// AiChatLens v1.1 — Content Script
+// Floating TOC panel for AI chat conversations (Claude, Meta AI)
 // ============================================================
 
 (function () {
@@ -10,11 +10,21 @@
   if (document.getElementById('aicl-host')) return;
 
   // ----------------------------------------------------------
+  // Platform Detection
+  // ----------------------------------------------------------
+  const platform = (() => {
+    const host = location.hostname;
+    if (host.includes('claude.ai')) return 'claude';
+    if (host.includes('meta.ai')) return 'meta';
+    return 'unknown';
+  })();
+
+  // ----------------------------------------------------------
   // Constants
   // ----------------------------------------------------------
   const PANEL_WIDTH = 280;
   const COLLAPSED_WIDTH = 40;
-  const HEADER_OFFSET = 80; // px to offset for Claude's sticky header
+  const HEADER_OFFSET = platform === 'meta' ? 56 : 80; // px to offset for sticky header
   const DEBOUNCE_MS = 300;
   const MAX_DISPLAY_ITEMS = 100;
   const MAX_MESSAGES_WARNING = 200;
@@ -567,7 +577,12 @@
   }
 
   function extractText(element) {
-    // Try first paragraph
+    // Meta AI: text is in span[data-slot="text"]
+    if (platform === 'meta') {
+      const textSpan = element.querySelector('span[data-slot="text"]');
+      if (textSpan && textSpan.textContent.trim()) return textSpan.textContent.trim();
+    }
+    // Claude: Try first paragraph
     const p = element.querySelector('p');
     if (p && p.textContent.trim()) return p.textContent.trim();
     // Fallback to full text
@@ -579,9 +594,36 @@
   }
 
   // ----------------------------------------------------------
-  // DOM: Find user messages
+  // DOM: Find user messages (platform-aware)
   // ----------------------------------------------------------
   function findUserMessages() {
+    if (platform === 'meta') return findMetaAIUserMessages();
+    return findClaudeUserMessages();
+  }
+
+  // ---- Meta AI message detection ----
+  function findMetaAIUserMessages() {
+    // Strategy 1: data-message-type="user" attribute
+    let messages = document.querySelectorAll('[data-message-type="user"]');
+    if (messages.length > 0) return Array.from(messages);
+
+    // Strategy 2: data-message-item with _user suffix in message ID
+    const messageItems = document.querySelectorAll('[data-message-item="true"]');
+    const userMessages = [];
+    messageItems.forEach(el => {
+      const id = el.getAttribute('data-message-id') || '';
+      if (id.includes('_user')) {
+        const userDiv = el.querySelector('[data-message-type="user"]');
+        userMessages.push(userDiv || el);
+      }
+    });
+    if (userMessages.length > 0) return userMessages;
+
+    return [];
+  }
+
+  // ---- Claude message detection ----
+  function findClaudeUserMessages() {
     // Strategy 1: data-testid
     let messages = document.querySelectorAll('[data-testid="human-user-message"]');
     if (messages.length > 0) return Array.from(messages);
@@ -957,20 +999,35 @@
     const el = item.element;
     if (!el || !el.isConnected) return;
 
+    // For Meta AI, scroll the parent message-item container
+    const scrollTarget = (platform === 'meta')
+      ? (el.closest('[data-message-item="true"]') || el)
+      : el;
+
     // Scroll into view
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
     // Offset for sticky header
     setTimeout(() => {
-      window.scrollBy({ top: -HEADER_OFFSET, behavior: 'smooth' });
+      if (platform === 'meta') {
+        // Meta AI uses a nested scroll container, not the window
+        const scrollContainer = scrollTarget.closest('.overflow-y-auto');
+        if (scrollContainer) {
+          scrollContainer.scrollBy({ top: -HEADER_OFFSET, behavior: 'smooth' });
+        } else {
+          window.scrollBy({ top: -HEADER_OFFSET, behavior: 'smooth' });
+        }
+      } else {
+        window.scrollBy({ top: -HEADER_OFFSET, behavior: 'smooth' });
+      }
     }, 100);
 
     // Highlight flash
-    el.classList.add('aicl-highlight-flash');
+    scrollTarget.classList.add('aicl-highlight-flash');
     setTimeout(() => {
-      el.classList.add('aicl-highlight-flash-fade');
+      scrollTarget.classList.add('aicl-highlight-flash-fade');
       setTimeout(() => {
-        el.classList.remove('aicl-highlight-flash', 'aicl-highlight-flash-fade');
+        scrollTarget.classList.remove('aicl-highlight-flash', 'aicl-highlight-flash-fade');
       }, HIGHLIGHT_DURATION_MS);
     }, 50);
 
